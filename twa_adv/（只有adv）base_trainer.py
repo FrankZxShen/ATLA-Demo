@@ -444,7 +444,7 @@ class BaseTrainer:
                             img_delta_grad = img_delta.grad.clone().detach().float()  # [?]
 
                             # ocr_delta梯度
-                            ocr_delta_grad = img_delta.grad.clone().detach().float()  # [?]
+                            ocr_delta_grad = ocr_delta.grad.clone().detach().float()  # [?]
 
                             # ocr fasttext梯度
                             ocr_fasttext_delta_grad = ocr_fasttext_delta.grad.clone().detach().float()  # [?]
