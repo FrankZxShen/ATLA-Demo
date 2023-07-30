@@ -134,10 +134,10 @@ class M4CTextVQADataset(TextVQADataset):
         #     1000 * (bbox[3] / height),
         # ]
         for bbox in ocr_origin:
-            bbox[0] = 800 * (bbox[0] / width)
-            bbox[1] = 800 * (bbox[1] / height)
-            bbox[2] = 800 * (bbox[2] / width)
-            bbox[3] = 800 * (bbox[3] / height)
+            bbox[0] = 500 * (bbox[0] / width)
+            bbox[1] = 500 * (bbox[1] / height)
+            bbox[2] = 500 * (bbox[2] / width)
+            bbox[3] = 500 * (bbox[3] / height)
         return ocr_origin
         # return [x0,y0,x1,y1]
 
