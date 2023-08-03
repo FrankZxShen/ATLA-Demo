@@ -319,7 +319,6 @@ class BaseTrainer:
                         prepared_batch['adv'] = False
                         # prepared_batch2['adv'] = False
                         model_output = self.model(prepared_batch)
-                        pre_prepared_batch = prepared_batch
                         # =====TARGET7-8: 计算BCE Loss + KL loss（需要传到losses做处理）======
                         
                         # ===================STEP2 另一个model分支重写计算一次（不知道会不会爆显。。）================
@@ -392,7 +391,6 @@ class BaseTrainer:
                             # self.writer.write(prepared_batch)
                             # model2_adv_output = self.model2(prepared_batch)
                         # =====TARGET7-8: 计算BCE Loss + KL loss（需要传到losses做处理）======
-                            report = Report(pre_prepared_batch, model_output)
                             report_adv = Report(prepared_batch, model_adv_output) # report获取加入干扰后的loss
                         # ===================STEP4 更新jocor损失================
                         # 这个时候有两个选择，在模型2中不加入对抗干扰/加入对抗干扰
@@ -402,48 +400,10 @@ class BaseTrainer:
                             # self.writer.write(report_adv.losses)
                         # =====================update_meter====================
                         # =====TARGET9: 更新损失======
-                            self._update_meter(report, self.meter)
+                            # self._update_meter(report, self.meter)
                             self._update_meter(report_adv, self.meter)
-                            loss_pick1 = self._extract_loss(report)
-                            loss_pick2 = self._extract_loss(report_adv)
-                        # ===================STEP5 计算jocor损失================
-                        # 这个时候需要看看loss_pick1和loss_pick2长的是什么样子的    
-                            # self.writer.write("==============loss_pick1==============")
-                            # self.writer.write(loss_pick1) #tensor(1259.3926, device='cuda:0', grad_fn=<AddBackward0>)
-                            # self.writer.write("==============loss_pick2==============")
-                            # self.writer.write(loss_pick2) #tensor(1259.9485, device='cuda:0', grad_fn=<AddBackward0>)
-                            # exit()
-                        # 直接获取klloss
-                            # co_lambda = 0.1
-                            if "textcls_scores" in list(model_output.keys()):
-                                # print("1:",all_losses.loss_jocor_kl(model_output["textcls_scores"].permute(0, 2, 1), model_adv_output["textcls_scores"].permute(0, 2, 1), reduce=False).shape)
-                                # print("2:",all_losses.loss_jocor_kl2(model_output["overlapcls_scores"], model_adv_output["overlapcls_scores"], reduce=False))
-                                # print("3:",all_losses.loss_jocor_kl2(model_output["pollutecls_scores"], model_adv_output["pollutecls_scores"], reduce=False))
-                                # print("loss:",loss_pick1," ",loss_pick2)
-                                # exit()
-                                loss_pick = (loss_pick1 * 0.9 + loss_pick2 * 0.9 + \
-                                    0.1 * all_losses.loss_jocor_kl(model_output["textcls_scores"].permute(0, 2, 1), model_adv_output["textcls_scores"].permute(0, 2, 1), reduce=False) + \
-                                    0.1 * all_losses.loss_jocor_kl(model_adv_output["textcls_scores"].permute(0, 2, 1), model_output["textcls_scores"].permute(0, 2, 1), reduce=False))
-                            else:
-                                loss_pick = (loss_pick1 * 0.9 + loss_pick2 * 0.9 + \
-                                    0.1 * all_losses.loss_jocor_kl(model_output["scores"], model_adv_output["scores"], reduce=False) + \
-                                    0.1 * all_losses.loss_jocor_kl(model_adv_output["scores"], model_output["scores"], reduce=False))
-                            # self.writer.write("==============loss_pick&data==============")
-                            # self.writer.write(loss_pick.shape) #[8/16, 5200]
-                            # self.writer.write(loss_pick.data.shape) #[8/16, 5200]
+                            loss = self._extract_loss(report_adv)
                             
-                            ind_sorted = torch.argsort(loss_pick.data, dim=1) 
-                            loss_sorted = torch.gather(loss_pick, 1, ind_sorted) #排序原来的数组
-
-                            # forget_rate相比原来jocor不进行变化
-                            remember_rate = 1 - self.rate_schedule[self.current_iteration-1]
-                            num_remember = int(remember_rate * len(loss_sorted[0]))
-
-                            ind_update = ind_sorted[:, :num_remember] #截取loss相差最小的（不进行forget）
-                            loss = torch.mean(loss_pick[:, ind_update])
-                            # self.writer.write("==============loss_pick==============")
-                            # self.writer.write(loss)
-                            # exit()
                             # 警告：正式训练开始！
                         # =====TARGET10: 回溯(先不混合精度)======
                             # # opts.gradient_accumulation_steps = 5; opts.adv_steps = 3;
