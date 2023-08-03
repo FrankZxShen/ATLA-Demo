@@ -285,10 +285,11 @@ class BaseTrainer:
                         # txt_embeds_init = self.text_bert.embeddings(cmb_text, token_type_ids=type_mask.long()) #[x,170,768]
 
                         cmb_text = prepared_batch['cmb_text'].to(device=torch.device("cpu"))
-                        txt_embeds_init = torch.zeros([self.batch_size//2, len(cmb_text[0]), 768])
+                        txt_embeds_init = torch.zeros([self.batch_size//2, len(cmb_text[0]), 768]).to(device=torch.device("cpu"))
 
                         # =====TARGET2: 获取视觉对象编码======
-                        img_embeds_init = prepared_batch['image_feature_0'][:, :prepared_batch['obj_bbox_coordinates'].size(1), :].to(device=torch.device("cpu"))
+                        # img_embeds_init = prepared_batch['image_feature_0'][:, :prepared_batch['obj_bbox_coordinates'].size(1), :].to(device=torch.device("cpu"))
+                        img_embeds_init = torch.zeros([self.batch_size//2, prepared_batch['obj_bbox_coordinates'].size(1), 768]).to(device=torch.device("cpu"))
                         # obj_fc7 = M4C.obj_faster_rcnn_fc7(obj_fc6)
                         # obj_fc7 = F.normalize(obj_fc7, dim=-1)
                         # self.writer.write(img_embeds_init.shape) #[16,100,2048]
@@ -318,9 +319,9 @@ class BaseTrainer:
                         prepared_batch['adv'] = False
                         # prepared_batch2['adv'] = False
                         model_output = self.model(prepared_batch)
-                        # pre_prepared_batch = prepared_batch
+                        pre_prepared_batch = prepared_batch
                         # =====TARGET7-8: 计算BCE Loss + KL loss（需要传到losses做处理）======
-                        report = Report(prepared_batch, model_output)
+                        
                         # ===================STEP2 另一个model分支重写计算一次（不知道会不会爆显。。）================
                         # model2_output = self.model2(prepared_batch2)
                         # Origin
@@ -388,10 +389,10 @@ class BaseTrainer:
                             # self.writer.write(prepared_batch)
                             model_adv_output = self.model(prepared_batch)
                         # ===================STEP3 另一个model分支重写计算一次===============
-
                             # self.writer.write(prepared_batch)
                             # model2_adv_output = self.model2(prepared_batch)
                         # =====TARGET7-8: 计算BCE Loss + KL loss（需要传到losses做处理）======
+                            report = Report(pre_prepared_batch, model_output)
                             report_adv = Report(prepared_batch, model_adv_output) # report获取加入干扰后的loss
                         # ===================STEP4 更新jocor损失================
                         # 这个时候有两个选择，在模型2中不加入对抗干扰/加入对抗干扰
