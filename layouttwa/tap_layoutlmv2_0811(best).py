@@ -356,6 +356,8 @@ class M4C(BaseModel):
         # obj_feat = obj_fc7
         # obj_bbox = sample_list.obj_bbox_origin_coordinates
         obj_bbox = sample_list.obj_bbox_coordinates
+        obj_bbox_expand = torch.zeros([obj_bbox.size(0), obj_feat.size(1)-obj_bbox.size(1), obj_bbox.size(2)])
+        obj_bbox = torch.cat([obj_bbox, obj_bbox_expand], dim=1)
         # top_left_x_feat =     self.x_position_embeddings(torch.clamp(obj_bbox[:,:, 0],min = 0, max = 1023))
         # top_left_y_feat =     self.y_position_embeddings(torch.clamp(obj_bbox[:,:, 1],min = 0, max = 1023))
         # bottom_right_x_feat = self.x_position_embeddings(torch.clamp(obj_bbox[:,:, 2],min = 0, max = 1023))
