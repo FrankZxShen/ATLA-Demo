@@ -160,8 +160,12 @@ class M4CTextVQADataset(TextVQADataset):
 
         #######################################################################
         # 0. Load img
-        file1 = self.config.image_features.train_images[0]
-        file2 = self.config.image_features.train_images[1]
+        if self.config.image_features.train_images[0] == self.config.image_features.train_images[-1]: 
+            file1 = self.config.image_features.train_images[0]
+            file2 = 'none'
+        else:
+            file1 = self.config.image_features.train_images[0]
+            file2 = self.config.image_features.train_images[1]
         # img_path=None
         # img_path = 'data/'+ file + '/' + sample.image_id + '.jpg'
         img_path1 = 'data/' + file1 +  image_path
@@ -303,7 +307,7 @@ class M4CTextVQADataset(TextVQADataset):
                     assert len(recover_ocr_tokens) == 200
                     related_ocr_tokens = recover_ocr_tokens[:100]
             context_char, context_char_mask, word_ids = add_cons_ocr_info(pad_ocr_tokens, ocr_str_len)
-            sample.obj_word_ids = object_bert_ids(sample['image_info_0']['object_tokens'],obj_max_len)
+            # sample.obj_word_ids = object_bert_ids(sample['image_info_0']['object_tokens'],obj_max_len)
             related_context_char, related_context_char_mask, related_word_ids = add_cons_ocr_info(related_ocr_tokens,ocr_str_len)
             sample.context_char = torch.cat([context_char,related_context_char],dim=0)
             sample.context_char_mask = torch.cat([context_char_mask,related_context_char_mask],dim=0)
@@ -314,7 +318,7 @@ class M4CTextVQADataset(TextVQADataset):
             sample.context_char = context_char
             sample.context_char_mask = context_char_mask
             sample.word_ids = word_ids
-            sample.obj_word_ids = object_bert_ids(sample['image_info_0']['object_tokens'], obj_max_len)
+            # sample.obj_word_ids = object_bert_ids(sample['image_info_0']['object_tokens'], obj_max_len)
             pad_ocr_tokens = ocr_tokens
         elif 'cons' in self.config.ocr.features:
             adv_pro = self.config.ocr.adv_pro
