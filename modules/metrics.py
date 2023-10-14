@@ -497,18 +497,26 @@ class TextVQAAccuracy(BaseMetric):
         self.evaluator = evaluators.TextVQAAccuracyEvaluator()
         self.gt_key = 'gt_answers_enc'
 
-    def calculate(self, sample_list, model_output, *args, **kwargs):
+    def calculate(self, sample_list, model_output, writer, json_for_caption, json_for_qa, json_for_llm,  \
+    model_vlm, tokenizer_vlm, image_processor, model_blip, caption_processor, tokenizer_t5, model_t5, model_llama2, tokenizer_llama2, \
+    image_name, question_str, ocr_tokens, img, *args, **kwargs):
         answer_processor = registry.get(
             sample_list.dataset_name + "_answer_processor"
         )
 
         batch_size = sample_list.context_tokens_enc.size(0)
+        # print("model_scores:",model_output["scores"].shape) #[1,12,5200]
         pred_answers = model_output["scores"].argmax(dim=-1)
+        # _, pred_candidates = torch.topk(model_output["scores"],5)
+        # pred_candidates = pred_candidates[0].permute(1,0)
+        # pred_cand_list = []
+        # for cand in pred_candidates:
+        #     pred_cand_list.append(cand)
         context_tokens_enc = sample_list.context_tokens_enc.cpu().numpy()
         gt_answers_enc = sample_list[self.gt_key].cpu().numpy()
         answer_space_size = answer_processor.get_true_vocab_size()
-
         predictions = []
+        all_gt_answers = []
         from pythia.utils.objects_to_byte_tensor import dec_bytes2obj
         from pythia.utils.text_utils import word_tokenize
         for idx in range(batch_size):
@@ -526,15 +534,47 @@ class TextVQAAccuracy(BaseMetric):
                     answer_words.append(
                         answer_processor.answer_vocab.idx2word(answer_id)
                     )
-
+            # pred_candidates_answers = []
+            # for cad_id,candidates in enumerate(pred_cand_list):
+            #     candidates = candidates.unsqueeze(0)
+            #     answer_words_cand = [[]] * 5 
+            #     for answer_id in candidates[idx].tolist():
+            #         if answer_id >= answer_space_size:
+            #             answer_id -= answer_space_size
+            #             answer_words_cand[cad_id].append(
+            #                 word_tokenize(context_tokens[answer_id])
+            #             )
+            #         else:
+            #             if answer_id == answer_processor.EOS_IDX:
+            #                 break
+            #             answer_words_cand[cad_id].append(
+            #                 answer_processor.answer_vocab.idx2word(answer_id)
+            #             )
+            #     pred_candidates_answers.append(' '.join(answer_words_cand[cad_id]).replace(" 's", "'s"))
+            # print("candidates:",pred_candidates_answers)
             pred_answer = ' '.join(answer_words).replace(" 's", "'s")
+            # print("pred:",pred_answer)
             gt_answers = dec_bytes2obj(gt_answers_enc[idx])
-            predictions.append({
-                "pred_answer": pred_answer,
-                "gt_answers": gt_answers,
-            })
+            # print("gt:",gt_answers)
+            all_gt_answers.append(gt_answers)
+            if question_str:
+                questions = question_str[idx]
+                predictions.append({
+                    "pred_answer": pred_answer,
+                    "gt_answers": gt_answers,
+                    "questions": questions,
+                })
+            else:
+                predictions.append({
+                    "pred_answer": pred_answer,
+                    "gt_answers": gt_answers,
+                })
 
-        accuracy = self.evaluator.eval_pred_list(predictions)
+
+        accuracy = self.evaluator.eval_pred_list(
+            predictions, writer, json_for_caption, json_for_qa, json_for_llm, \
+            model_vlm, tokenizer_vlm, image_processor, model_blip, caption_processor, tokenizer_t5, model_t5, model_llama2, tokenizer_llama2, \
+            image_name, question_str, all_gt_answers, ocr_tokens, img)
         accuracy = torch.tensor(accuracy).cuda()
 
         return accuracy
@@ -583,7 +623,9 @@ class PreTrainMLMAccuracy(BaseMetric):
         self.contrapred_accuracy = PreTrainContraAccuracy()
         self.rpp_accuracy = PreTrainRPPAccuracy()
 
-    def calculate(self, sample_list, model_output, *args, **kwargs):
+    def calculate(self, sample_list, model_output, writer=None, json_for_caption=None, json_for_qa=None, json_for_llm=None, \
+    model_vlm=None, tokenizer_vlm=None, image_processor=None, model_blip=None, caption_processor=None, tokenizer_t5=None, model_t5=None, \
+    model_llama2=None, tokenizer_llama2=None, image_name=None, question_str=None, ocr_tokens=None, img=None, *args, **kwargs):
         ## (B,T,token), (B,T)
         batch_size, tokenlen, vocab_size = model_output["textcls_scores"].shape
         scores = model_output["textcls_scores"].view(batch_size*tokenlen,-1)
@@ -604,7 +646,9 @@ class PreTrainContraAccuracy(BaseMetric):
     def __init__(self):
         super().__init__("contrapred_accuracy")
 
-    def calculate(self, sample_list, model_output, *args, **kwargs):
+    def calculate(self, sample_list, model_output, writer=None, json_for_caption=None, json_for_qa=None, json_for_llm=None, \
+    model_vlm=None, tokenizer_vlm=None, image_processor=None, model_blip=None, caption_processor=None, tokenizer_t5=None, model_t5=None, \
+    model_llama2=None, tokenizer_llama2=None, image_name=None, question_str=None, ocr_tokens=None, img=None, *args, **kwargs):
         scores = model_output["pollutecls_scores"]
         if "tag_pollute" not in sample_list:
             targets = sample_list["ocrtag_pollute"].float()
@@ -619,7 +663,9 @@ class PreTrainRPPAccuracy(BaseMetric):
     def __init__(self):
         super().__init__("positionpred_accuracy")
 
-    def calculate(self, sample_list, model_output, *args, **kwargs):
+    def calculate(self, sample_list, model_output, writer=None, json_for_caption=None, json_for_qa=None, json_for_llm=None, \
+    model_vlm=None, tokenizer_vlm=None, image_processor=None, model_blip=None, caption_processor=None, tokenizer_t5=None, model_t5=None, \
+    model_llama2=None, tokenizer_llama2=None, image_name=None, question_str=None, ocr_tokens=None, img=None, *args, **kwargs):
         ## binary
         scores = model_output["overlapcls_scores"].squeeze(-1)
         targets = sample_list["overlap"].float()
